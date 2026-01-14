@@ -2,6 +2,7 @@ package inits
 
 import (
 	"app/internal/router"
+	"core/ai/tools"
 
 	"github.com/mszlu521/thunder/config"
 	"github.com/mszlu521/thunder/database"
@@ -16,10 +17,16 @@ func Init(s *server.Server, conf *config.Config) {
 	database.InitRedis(conf.DB.Redis)
 	// 初始化JWT
 	jwt.Init(conf.Jwt.GetSecret())
+	// 注册工具
+	registerTools()
 	s.RegisterRouters(
 		&router.Event{},
 		&router.AuthRouter{},
 		&router.SubscriptionRouter{},
 		&router.AgentRouter{},
 		&router.LLMRouter{})
+}
+
+func registerTools() {
+	tools.RegisterSystemTools(tools.NewWeatherTool(&tools.WeatherConfig{ApiKey: tools.ApiKey}))
 }
