@@ -73,38 +73,3 @@ func (j JSON) Value() (driver.Value, error) {
 	// 将 JSON 转换为字节切片
 	return json.Marshal(j)
 }
-
-// ToModelParams 将JSON类型的ModelParameters转换为ModelParams结构体
-func (j JSON) ToModelParams() ModelsParams {
-	params := ModelsParams{}
-
-	if maxTokens, ok := j["maxTokens"].(float64); ok {
-		params.MaxTokens = int(maxTokens)
-	}
-
-	if temperature, ok := j["temperature"].(float64); ok {
-		params.Temperature = temperature
-	}
-
-	if topP, ok := j["topP"].(float64); ok {
-		params.TopP = topP
-	}
-
-	if n, ok := j["n"].(float64); ok {
-		params.N = int(n)
-	}
-
-	if stop, ok := j["stop"].([]any); ok {
-		params.Stop = stop
-	}
-
-	if presencePenalty, ok := j["presencePenalty"].(float64); ok {
-		params.PresencePenalty = presencePenalty
-	}
-
-	if frequencyPenalty, ok := j["frequencyPenalty"].(float64); ok {
-		params.FrequencyPenalty = frequencyPenalty
-	}
-
-	return params
-}
