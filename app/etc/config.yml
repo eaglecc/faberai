@@ -14,6 +14,9 @@ auth:
     - "/api/v1/auth/**"
   needLogins:
     - "/api/v1/agents/**"
+    - "/api/v1/tools/**"
+    - "/api/v1/llms/**"
+    - "/api/v1/provider-configs/**"
 log:
   level: "info"
   format: "pretty" # 日志格式: json, pretty, text 生产环境请选择json

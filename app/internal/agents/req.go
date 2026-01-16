@@ -36,3 +36,12 @@ type AgentMessageReq struct {
 	Message   string    `json:"message"`
 	SessionId uuid.UUID `json:"sessionId"`
 }
+
+type UpdateAgentToolReq struct {
+	Tools []ToolItem `json:"tools"`
+}
+
+type ToolItem struct {
+	ID   uuid.UUID `json:"id"`
+	Type string    `json:"type"`
+}

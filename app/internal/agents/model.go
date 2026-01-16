@@ -75,3 +75,11 @@ func (m *models) updateAgent(ctx context.Context, agent *model.Agent) error {
 	defer cancel()
 	return m.db.WithContext(ctx).Updates(agent).Error
 }
+
+func (m *models) deleteAgentTools(ctx context.Context, agentId uuid.UUID) error {
+	return m.db.WithContext(ctx).Where("agent_id = ?", agentId).Delete(&model.AgentTool{}).Error
+}
+
+func (m *models) createAgentTools(ctx context.Context, tools []*model.AgentTool) error {
+	return m.db.WithContext(ctx).CreateInBatches(tools, len(tools)).Error
+}

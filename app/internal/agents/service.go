@@ -377,3 +377,56 @@ func (s *Service) buildToolCallingChatModel(ctx context.Context, agentInfo *mode
 	return chatModel, nil
 
 }
+
+func (s *Service) updateAgentTool(ctx context.Context, userID uuid.UUID, agentId uuid.UUID, req UpdateAgentToolReq) (any, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+	//先检查agent是否存在
+	agent, err := s.repo.getAgentById(ctx, userID, agentId)
+	if err != nil {
+		return nil, errs.DBError
+	}
+	if agent == nil {
+		return nil, biz.ErrAgentNotFound
+	}
+	if len(req.Tools) <= 0 {
+		return nil, biz.ErrToolNotExisted
+	}
+	// todo: 可以把删除和新增放在一个事务中
+	//先删除agent现有关联的工具
+	err = s.repo.deleteAgentTools(ctx, agentId)
+	if err != nil {
+		return nil, errs.DBError
+	}
+	//创建新的关联记录
+	var agentTools []*model.AgentTool
+	var toolIds []uuid.UUID
+	for _, v := range req.Tools {
+		toolIds = append(toolIds, v.ID)
+	}
+	//获取到工具的ID，去工具表查询出对应的工具信息
+	toolsList, err := s.getToolsByIds(toolIds)
+	for _, t := range toolsList {
+		agentTools = append(agentTools, &model.AgentTool{
+			AgentID:   agentId,
+			ToolID:    t.ID,
+			Status:    model.Enabled,
+			CreatedAt: time.Now(),
+		})
+	}
+	//批量插入
+	err = s.repo.createAgentTools(ctx, agentTools)
+	if err != nil {
+		logs.Errorf("批量插入agent_tools失败: %v", err)
+		return nil, errs.DBError
+	}
+	return agentTools, nil
+}
+
+func (s *Service) getToolsByIds(ids []uuid.UUID) ([]*model.Tool, error) {
+	//这里我们一会去实现event 获取工具信息
+	trigger, err := event.Trigger("getToolsByIds", &shared.GetToolsByIdsRequest{
+		Ids: ids,
+	})
+	return trigger.([]*model.Tool), err
+}

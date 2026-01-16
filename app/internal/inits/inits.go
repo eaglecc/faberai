@@ -24,7 +24,8 @@ func Init(s *server.Server, conf *config.Config) {
 		&router.AuthRouter{},
 		&router.SubscriptionRouter{},
 		&router.AgentRouter{},
-		&router.LLMRouter{})
+		&router.LLMRouter{},
+		&router.ToolsRouter{})
 }
 
 func registerTools() {
