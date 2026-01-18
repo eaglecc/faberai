@@ -2,3 +2,4 @@
 docker/plugins/*
 docker/data/*
 docker/config/*
+core/ai/tools/*
