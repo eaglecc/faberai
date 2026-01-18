@@ -63,7 +63,7 @@ func (m *models) getAgentById(ctx context.Context, userId uuid.UUID, id uuid.UUI
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	var agent model.Agent
-	err := m.db.WithContext(ctx).Where("id = ? AND creator_id = ?", id, userId).First(&agent).Error
+	err := m.db.WithContext(ctx).Preload("Tools").Where("id = ? AND creator_id = ?", id, userId).First(&agent).Error
 	if gorms.IsRecordNotFoundError(err) {
 		return nil, nil
 	}

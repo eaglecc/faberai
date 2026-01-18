@@ -5,8 +5,13 @@ import (
 	"common/biz"
 	"context"
 	"core/ai"
+	"core/ai/mcps"
+	"core/ai/tools"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"model"
+	"strings"
 	"time"
 
 	"github.com/cloudwego/eino-ext/components/model/ollama"
@@ -21,6 +26,7 @@ import (
 	"github.com/cloudwego/eino/schema"
 	"github.com/eino-contrib/ollama/api"
 	"github.com/google/uuid"
+	"github.com/mszlu521/thunder/ai/einos"
 	"github.com/mszlu521/thunder/database"
 	"github.com/mszlu521/thunder/errs"
 	"github.com/mszlu521/thunder/event"
@@ -268,7 +274,7 @@ func (s *Service) buildMainAgent(ctx context.Context, agent *model.Agent, messag
 		return nil, err
 	}
 	var allTools []tool.BaseTool
-
+	allTools = append(allTools, s.buildTools(agent)...)
 	// 构建系统提示词 adk.NewChatModelAgent 实现了ReAct模式，能调用工具，多智能体协作
 	//systemPrompt := fmt.Sprintf(ai.BASE_ADK_TEMPLATE, agentInfo.SystemPrompt, ragContext)
 	modelAgent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
@@ -283,7 +289,7 @@ func (s *Service) buildMainAgent(ctx context.Context, agent *model.Agent, messag
 			)
 			messages, err := template.Format(ctx, map[string]any{
 				"role":       agent.SystemPrompt,
-				"toolsInfo":  "",
+				"toolsInfo":  s.formatToolsInfo(allTools),
 				"agentsInfo": "",
 				"ragContext": "",
 			})
@@ -424,9 +430,61 @@ func (s *Service) updateAgentTool(ctx context.Context, userID uuid.UUID, agentId
 }
 
 func (s *Service) getToolsByIds(ids []uuid.UUID) ([]*model.Tool, error) {
-	//这里我们一会去实现event 获取工具信息
+	//event 获取工具信息
 	trigger, err := event.Trigger("getToolsByIds", &shared.GetToolsByIdsRequest{
 		Ids: ids,
 	})
 	return trigger.([]*model.Tool), err
+}
+
+func (s *Service) buildTools(agent *model.Agent) []tool.BaseTool {
+	var agentTools []tool.BaseTool
+	for _, v := range agent.Tools {
+		// 工具类型又system和mcp两种
+		switch v.ToolType {
+		case model.McpToolType:
+			// 查询出MCP工具列表，转为Eino中的BaseTool
+			mcpConfigs := einos.McpConfig{
+				BaseUrl: v.McpConfig.Url,
+				Token:   v.McpConfig.CredentialType,
+				Name:    "FaberAI",
+				Version: "1.0.0",
+			}
+			baseTools, err := mcps.GetEinoBaseTools(context.Background(), &mcpConfigs)
+			if err != nil {
+				logs.Warnf("获取MCP工具列表时出错: %v", err)
+				continue
+			}
+			agentTools = append(agentTools, baseTools...)
+		case model.SystemToolType:
+			// 根据名称获取工具
+			systemTool := s.loadSystemTool(v.Name)
+			if systemTool == nil {
+				logs.Warnf("加载系统工具时，找不到工具: %s", v.Name)
+				continue
+			}
+			agentTools = append(agentTools, systemTool)
+		default:
+			logs.Warnf("Unknown tool type: %s", v.ToolType)
+		}
+	}
+	return agentTools
+}
+
+func (s *Service) loadSystemTool(name string) tool.BaseTool {
+	return tools.FindTool(name)
+}
+
+func (s *Service) formatToolsInfo(allTools []tool.BaseTool) string {
+	var builder strings.Builder
+	builder.WriteString("【可用工具列表】: \n")
+	for _, tool := range allTools {
+		info, _ := tool.Info(context.Background())
+		builder.WriteString(fmt.Sprintf("名称: `%s`\n", info.Name))
+		builder.WriteString(fmt.Sprintf("描述: `%s`\n", info.Desc))
+		// 参数要转为JSON
+		marshal, _ := json.Marshal(info.ParamsOneOf)
+		builder.WriteString(fmt.Sprintf("参数: `%s`\n", string(marshal)))
+	}
+	return builder.String()
 }
